@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lance Revenue Pulse</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#111827',
+            success: '#16a34a',
+            warning: '#ea580c',
+            bg: '#f9fafb',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    body { background: #e5e7eb; margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .view-enter { animation: fadeSlideIn 0.22s ease-out both; }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .sparkline { display: inline-flex; align-items: flex-end; gap: 2px; height: 20px; }
+    .sparkline span { width: 4px; border-radius: 2px; background: #16a34a; }
+    .chat-bubble { position: relative; background: #f3f4f6; border-radius: 16px 16px 16px 4px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 24px; }
+    .checkmark-circle { width: 80px; height: 80px; border-radius: 50%; background: #dcfce7; display: flex; align-items: center; justify-content: center; margin: 0 auto 24px; }
+    .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: flex-end; justify-content: center; z-index: 50; }
+    .sheet-enter { animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1) both; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(100%); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const TODAY = new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    function BackArrow({ onClick }) {
+      return (
+        <button onClick={onClick} className="flex items-center gap-1 text-gray-500 text-sm font-medium mb-5 active:opacity-60" style={{ WebkitTapHighlightColor: 'transparent' }}>
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 12H5M5 12l7 7M5 12l7-7"/></svg>
+          Back
+        </button>
+      );
+    }
+
+    function AuditModal({ onClose, rate }) {
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <p className="font-semibold text-gray-900">Audit log</p>
+              <button onClick={onClose} className="text-gray-400 active:opacity-60">
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed">
+              Standard King raised <strong>$169 → ${rate}</strong>.<br/>
+              Reason: pace +14%, comp set +$15.<br/>
+              Confirmed by <strong>Morgan R.</strong> at 7:42 AM.
+            </div>
+            <button onClick={onClose} className="mt-4 w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium active:opacity-80">Close</button>
+          </div>
+        </div>
+      );
+    }
+
+    function AdjustModal({ onClose, onConfirm }) {
+      const [rate, setRate] = useState(189);
+      return (
+        <div className="modal-overlay" onClick={onClose}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-1">
+              <p className="font-semibold text-gray-900">Adjust Rate</p>
+              <button onClick={onClose} className="text-gray-400 active:opacity-60">
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-5">Standard King · Tonight &amp; Tomorrow</p>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Your rate ($)</label>
+            <input
+              type="number"
+              value={rate}
+              onChange={e => setRate(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-2xl font-bold text-gray-900 mb-2 focus:outline-none focus:ring-2 focus:ring-gray-900"
+            />
+            <p className="text-xs text-gray-400 mb-6">AI recommended $189 based on current demand signals.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={onClose} className="py-3 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold text-sm active:opacity-70">Cancel</button>
+              <button onClick={() => onConfirm(rate)} className="py-3 rounded-xl bg-gray-900 text-white font-semibold text-sm active:opacity-80 flex items-center justify-center gap-1.5">
+                Set Rate
+                <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function LocalEventsSheet({ onClose }) {
+      return (
+        <div className="sheet-overlay" onClick={onClose}>
+          <div className="sheet-enter bg-white w-full max-w-sm rounded-t-3xl p-6 pb-8" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <p className="font-semibold text-gray-900 text-base">Local Events — Tonight</p>
+              <button onClick={onClose} className="text-gray-400 active:opacity-60">
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="bg-gray-50 rounded-2xl p-4 mb-5">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <p className="font-semibold text-gray-900 text-base leading-tight">Oracle OpenWorld</p>
+                <span className="text-xs font-semibold text-green-700 bg-green-50 px-2.5 py-1 rounded-full whitespace-nowrap">High demand impact</span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  June 29 – July 2
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                  Moscone Center · 3 blocks away
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+                  Est. 2,400 attendees
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 text-center leading-relaxed">Lance factors local events into rate recommendations automatically.</p>
+          </div>
+        </div>
+      );
+    }
+
+    function View1({ onNext }) {
+      const [showEvents, setShowEvents] = useState(false);
+      return (
+        <div className="view-enter">
+          {/* Header */}
+          <div className="flex justify-between items-start mb-1">
+            <div>
+              <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-0.5">Lance</p>
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">Revenue Pulse</h1>
+            </div>
+            <span className="text-xs text-gray-400 font-medium mt-1">{TODAY}</span>
+          </div>
+          <p className="text-sm text-gray-500 mb-6">Good morning, Morgan. Here's your rate brief.</p>
+
+          {/* Cards */}
+          <div className="flex flex-col gap-3 mb-4">
+            {/* Occupancy */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg width="18" height="18" fill="none" stroke="#16a34a" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">Occupancy</p>
+                    <span className="text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full whitespace-nowrap">Tracking ahead</span>
+                  </div>
+                  <p className="text-base font-semibold text-gray-900">87% occupied tonight</p>
+                  <p className="text-sm text-gray-500 mt-0.5">18 Standard Kings remaining</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Booking Pace */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg width="18" height="18" fill="none" stroke="#1d4ed8" strokeWidth="2" viewBox="0 0 24 24"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-0.5">Booking Pace</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-base font-semibold text-gray-900">Bookings running +14% vs last Tuesday</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <div className="sparkline">
+                      {[6,8,7,9,10,12,14,16].map((h,i) => <span key={i} style={{ height: `${h}px`, opacity: 0.4 + i*0.07 }} />)}
+                    </div>
+                    <span className="text-xs font-semibold text-green-600">↑ Ahead of pace</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Comp Set */}
+            <div className="bg-white rounded-2xl p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <svg width="18" height="18" fill="none" stroke="#ea580c" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                    <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase">Comp Set</p>
+                    <span className="text-xs font-semibold text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full whitespace-nowrap">Comp moved</span>
+                  </div>
+                  <p className="text-base font-semibold text-gray-900">Hilton Union Square raised rates $15 overnight</p>
+                  <p className="text-sm text-gray-500 mt-0.5">Now at $199 Standard King</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Event chip */}
+          <button onClick={() => setShowEvents(true)} className="w-full text-left bg-white border border-gray-100 rounded-xl px-4 py-3 mb-6 shadow-sm active:opacity-70" style={{ WebkitTapHighlightColor: 'transparent' }}>
+            <p className="text-sm text-gray-700 font-medium">🎯 Local Events: Oracle OpenWorld — 3 blocks away</p>
+          </button>
+          {showEvents && <LocalEventsSheet onClose={() => setShowEvents(false)} />}
+
+          {/* CTA */}
+          <button
+            onClick={onNext}
+            className="w-full bg-gray-900 text-white font-semibold py-4 rounded-2xl text-base active:opacity-80 flex items-center justify-center gap-2"
+          >
+            See Rate Recommendation
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      );
+    }
+
+    function View2({ onBack, onNext }) {
+      const [showAdjust, setShowAdjust] = useState(false);
+      return (
+        <div className="view-enter">
+          <BackArrow onClick={onBack} />
+          <h2 className="text-xl font-bold text-gray-900 mb-1">Today's Rate Recommendation</h2>
+          <p className="text-sm text-gray-500 mb-6">Standard King · Tonight &amp; Tomorrow</p>
+
+          {/* Rate comparison */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm mb-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Current Rate</p>
+                <p className="text-3xl font-bold text-gray-400">$169</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Recommended</p>
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-3xl font-bold text-green-700">$189</p>
+                  <span className="text-xs font-bold text-green-700 bg-green-50 px-2 py-1 rounded-full">+$20</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-center gap-1">
+              <svg width="14" height="14" fill="none" stroke="#16a34a" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+              <span className="text-xs text-green-700 font-semibold">High confidence recommendation</span>
+            </div>
+          </div>
+
+          {/* AI reasoning */}
+          <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <svg width="14" height="14" fill="none" stroke="#6b7280" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z"/></svg>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">AI Reasoning</p>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed">Occupancy is tracking 14% ahead of last Tuesday. Comp set raised rates overnight. Local demand (Oracle OpenWorld) adds upward pressure. <span className="font-semibold text-gray-900">Confidence: High.</span></p>
+          </div>
+
+          <p className="text-xs text-gray-400 text-center mb-6">This recommendation requires your confirmation before any change is made.</p>
+
+          {/* Buttons */}
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => setShowAdjust(true)} className="py-4 rounded-2xl border-2 border-gray-200 text-gray-700 font-semibold text-sm active:opacity-70">Adjust</button>
+            <button
+              onClick={() => onNext()}
+              className="py-4 rounded-2xl bg-gray-900 text-white font-semibold text-sm active:opacity-80 flex items-center justify-center gap-1.5"
+            >
+              Confirm Rate
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+          {showAdjust && <AdjustModal onClose={() => setShowAdjust(false)} onConfirm={(rate) => { setShowAdjust(false); onNext(rate); }} />}
+        </div>
+      );
+    }
+
+    function View3({ onBack, onNext, rate }) {
+      return (
+        <div className="view-enter">
+          <BackArrow onClick={onBack} />
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Confirm Rate Change</h2>
+
+          {/* Summary card */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-gray-900">Standard King</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-400 line-through">$169</span>
+                <svg width="14" height="14" fill="none" stroke="#9ca3af" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                <span className="text-sm font-bold text-green-700">${rate}</span>
+              </div>
+            </div>
+            <div className="border-t border-gray-50 pt-3 flex flex-col gap-1.5">
+              <div className="flex justify-between">
+                <span className="text-xs text-gray-400">Applies</span>
+                <span className="text-xs font-medium text-gray-700">Tonight + Tomorrow</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-gray-400">Logged at</span>
+                <span className="text-xs font-medium text-gray-700">7:42 AM</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Message preview */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">On confirmation, Lance will send:</p>
+            <div className="chat-bubble p-4 mb-3">
+              <p className="text-sm text-gray-700 leading-relaxed">"Rate update — Standard King: <strong>${rate}</strong> tonight and tomorrow. Demand is running ahead of pace and comp set moved up this morning. — Revenue Pulse"</p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-500 mr-1">To:</span>
+              <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">Front Desk (3)</span>
+              <span className="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">Sales Team (2)</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-400 text-center mb-6">Nothing changes until you confirm.</p>
+
+          <button
+            onClick={onNext}
+            className="w-full bg-gray-900 text-white font-semibold py-4 rounded-2xl text-base active:opacity-80 flex items-center justify-center gap-2"
+          >
+            Confirm &amp; Send
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      );
+    }
+
+    function View4({ rate }) {
+      const [showModal, setShowModal] = useState(false);
+      return (
+        <div className="view-enter flex flex-col items-center text-center py-8">
+          {/* Checkmark */}
+          <div className="checkmark-circle mb-6">
+            <svg width="40" height="40" fill="none" stroke="#16a34a" strokeWidth="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Rate confirmed.</h2>
+          <p className="text-base text-gray-600 leading-relaxed mb-2">${rate} rate active for Standard King —<br />tonight &amp; tomorrow.</p>
+          <p className="text-sm text-gray-400 mb-6">Message sent to Front Desk and Sales at 7:42 AM.</p>
+
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-sm text-blue-600 font-medium underline underline-offset-2 mb-8 active:opacity-60"
+          >
+            View audit log →
+          </button>
+
+          {/* Rate badge */}
+          <div className="w-full bg-green-50 rounded-2xl p-4 mb-8 border border-green-100">
+            <div className="flex items-center justify-between">
+              <div className="text-left">
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-widest mb-0.5">Active Rate</p>
+                <p className="text-sm text-green-800 font-medium">Standard King · Tonight + Tomorrow</p>
+              </div>
+              <p className="text-2xl font-bold text-green-700">${rate}</p>
+            </div>
+          </div>
+
+          <p className="text-xs text-gray-400">Tomorrow's brief arrives at 7:00 AM.</p>
+
+          {showModal && <AuditModal onClose={() => setShowModal(false)} rate={rate} />}
+        </div>
+      );
+    }
+
+    function App() {
+      const [view, setView] = useState(0);
+      const [confirmedRate, setConfirmedRate] = useState(189);
+
+      return (
+        <div style={{ background: '#e5e7eb', minHeight: '100vh', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px' }}>
+          {/* Phone frame */}
+          <div style={{ width: '100%', maxWidth: '375px', background: '#f9fafb', borderRadius: '28px', padding: '32px 20px 36px', boxShadow: '0 4px 24px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)', minHeight: '680px' }}>
+            {view === 0 && <View1 onNext={() => setView(1)} />}
+            {view === 1 && <View2 onBack={() => setView(0)} onNext={(rate) => { if (rate !== undefined) setConfirmedRate(rate); setView(2); }} />}
+            {view === 2 && <View3 onBack={() => setView(1)} onNext={() => setView(3)} rate={confirmedRate} />}
+            {view === 3 && <View4 rate={confirmedRate} />}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
